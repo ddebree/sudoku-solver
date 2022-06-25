@@ -1,78 +1,194 @@
 package com.example.demo.model;
 
-import com.example.demo.exception.ConflictingNeighbourValueException;
-import com.example.demo.exception.ValueAlreadySetException;
+import lombok.Getter;
 
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.OptionalInt;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 public class SudokuBoard {
 
+    private static final AtomicReference<SudokuBoard> EMPTY_BOARD = new AtomicReference<>();
+    private static final SortedSet<Integer> POSSIBLE_VALUES = new TreeSet<>(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9));
+
+    @Getter
     private final Cell[][] cells;
 
-    private SudokuBoard() {
-        this.cells = new Cell[9][];
+    private final Map<Cell, Set<Cell>> neighbours = new ConcurrentHashMap<>();
+    private final Map<Cell, SortedSet<Integer>> neighbourValues = new ConcurrentHashMap<>();
+    private final Map<Cell, SortedSet<Integer>> possibleValues = new ConcurrentHashMap<>();
+
+    private SudokuBoard(final Cell[][] cells) {
+        this.cells = cells;
+    }
+
+    public Cell getCell(int row, int col) {
+        return this.cells[row][col];
+    }
+
+    public Set<Cell> getCellSet() {
+        final var cells = new HashSet<Cell>();
         for (int row = 0; row < 9; row++) {
-            cells[row] = new Cell[9];
             for (int col = 0; col < 9; col++) {
-                cells[row][col] = new Cell();
+                cells.add(this.cells[row][col]);
             }
         }
+        return cells;
+    }
 
-        //Add neighbours using rows:
+    public Set<Cell> getNeighbours(final int row, final int col) {
+        return getNeighbours(getCell(row, col));
+    }
+
+    public Set<Cell> getNeighbours(final Cell cell) {
+        return this.neighbours.computeIfAbsent(cell, c -> {
+            final Set<Cell> neighbours = new HashSet<>();
+            final int blockRow = (c.getRow() / 3) * 3;
+            final int blockCol = (c.getCol() / 3) * 3;
+            for (int i = 0; i < 9; i++) {
+                //Rows:
+                neighbours.add(this.cells[c.getRow()][i]);
+                //Cols:
+                neighbours.add(this.cells[i][c.getCol()]);
+                //
+                neighbours.add(this.cells[blockRow + (i / 3)][blockCol + (i % 3)]);
+            }
+            neighbours.remove(c);
+            return neighbours;
+        });
+    }
+
+    public SortedSet<Integer> getNeighbourValues(final int row, final int col) {
+        return getNeighbourValues(getCell(row, col));
+    }
+
+    public SortedSet<Integer> getNeighbourValues(final Cell cell) {
+        return this.neighbourValues.computeIfAbsent(cell,
+                c -> getNeighbours(c).stream()
+                        .filter(a -> a.getValue().isPresent())
+                        .map(a -> a.getValue().getAsInt())
+                        .collect(Collectors.toCollection(TreeSet::new)));
+    }
+
+    public SortedSet<Integer> getPossibleValues(final int row, final int col) {
+        return getPossibleValues(getCell(row, col));
+    }
+
+    public SortedSet<Integer> getPossibleValues(final Cell cell) {
+        return this.possibleValues.computeIfAbsent(cell,
+                c -> {
+                    if (cell.getValue().isPresent()) {
+                        return new TreeSet<>(List.of(cell.getValue().getAsInt()));
+                    } else {
+                        final TreeSet<Integer> potentialValues = new TreeSet<>(POSSIBLE_VALUES);
+                        potentialValues.removeAll(getNeighbourValues(c));
+                        return potentialValues;
+                    }
+                });
+    }
+
+    public boolean isValid() {
         for (int row = 0; row < 9; row++) {
-            final Set<Cell> allInRow = new HashSet<>();
             for (int col = 0; col < 9; col++) {
-                allInRow.add(this.cells[row][col]);
-            }
-            allInRow.forEach(c -> c.addNeighbours(allInRow));
-        }
-
-        //Add neighbours using cols:
-        for (int col = 0; col < 9; col++) {
-            final Set<Cell> allInCol = new HashSet<>();
-            for (int row = 0; row < 9; row++) {
-                allInCol.add(this.cells[row][col]);
-            }
-            allInCol.forEach(c -> c.addNeighbours(allInCol));
-        }
-
-        //Add neighbours using blocks:
-        for (int blockCol = 0; blockCol < 3; blockCol++) {
-            for (int blockRow = 0; blockRow < 3; blockRow++) {
-                final Set<Cell> allInBlock = new HashSet<>();
-                for (int colOffset = 0; colOffset < 3; colOffset++) {
-                    for (int rowOffset = 0; rowOffset < 3; rowOffset++) {
-                        allInBlock.add(this.cells[(blockRow * 3) + rowOffset][(blockCol * 3) + colOffset]);
+                final var cell = cells[row][col];
+                if (cell.getValue().isPresent()) {
+                    //This is set, so it shouldn't conflict with other cells:
+                    if (getNeighbourValues(cell).contains(cell.getValue().getAsInt())) {
+                        //One of the neighbours has the same value, so reject:
+                        return false;
+                    }
+                } else {
+                    if (getPossibleValues(cell).isEmpty()) {
+                        //no possible value for this cell:
+                        return false;
                     }
                 }
-                allInBlock.forEach(c -> c.addNeighbours(allInBlock));
             }
+        }
+        return true;
+    }
+
+    public Optional<Cell> getFirstUnset() {
+        for (int row = 0; row < 9; row++) {
+            for (int col = 0; col < 9; col++) {
+                var cell = this.cells[row][col];
+                if (cell.getValue().isEmpty()) {
+                    return Optional.of(cell);
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    public int countSolutions() {
+        if (! isValid()) {
+            return 0;
+        }
+        final Optional<Cell> firstUnset = getFirstUnset();
+        if (firstUnset.isPresent()) {
+            final Cell cell = firstUnset.get();
+            return getPossibleValues(cell).parallelStream()
+                    .mapToInt(value -> withValue(cell, value).countSolutions())
+                    .sum();
+        } else {
+            //We have a valid solution!
+            return 1;
+        }
+    }
+
+    public Set<SudokuBoard> findSolutions() {
+        if (! isValid()) {
+            return Collections.emptySet();
+        }
+        final Optional<Cell> firstUnset = getFirstUnset();
+        if (firstUnset.isPresent()) {
+            final Cell cell = firstUnset.get();
+            return getPossibleValues(cell).parallelStream()
+                    .map(value -> withValue(cell, value).findSolutions())
+                    .flatMap(Collection::stream)
+                    .collect(Collectors.toSet());
+        } else {
+            //We have a valid solution!
+            return Collections.singleton(this);
         }
     }
 
     public static SudokuBoard empty() {
-        return new SudokuBoard();
+        if (EMPTY_BOARD.get() == null) {
+            final var cells = new Cell[9][];
+            for (int row = 0; row < 9; row++) {
+                cells[row] = new Cell[9];
+                for (int col = 0; col < 9; col++) {
+                    cells[row][col] = new Cell(row, col);
+                }
+            }
+            EMPTY_BOARD.compareAndSet(null, new SudokuBoard(cells));
+        }
+        return EMPTY_BOARD.get();
     }
 
-    public SudokuBoard withValue(final int setRow, final int setCol, final int setValue)
-            throws ValueAlreadySetException, ConflictingNeighbourValueException {
-        final var result = new SudokuBoard();
+    public SudokuBoard withValue(final Cell cell, final int setValue) {
+        return withValue(cell.getRow(), cell.getCol(), setValue);
+    }
+
+    public SudokuBoard withValue(final int setRow, final int setCol, final int setValue) {
+        final var setCell = this.cells[setRow][setCol];
+        if (setCell.getValue().isPresent() && setCell.getValue().getAsInt() == setValue) {
+            return this;
+        }
+        final Cell[][] cells = new Cell[9][];
         for (int row = 0; row < 9; row++) {
+            cells[row] = new Cell[9];
             for (int col = 0; col < 9; col++) {
-                result.cells[row][col].setValue(this.cells[row][col].getValue());
+                if (setRow == row && setCol == col) {
+                    cells[row][col] = new Cell(row, col, setValue);
+                } else {
+                    cells[row][col] = this.cells[row][col];
+                }
             }
         }
-        var cell = result.cells[setRow][setCol];
-        if (cell.getValue().isPresent() && cell.getValue().getAsInt() != setValue) {
-            throw new ValueAlreadySetException();
-        } else if (cell.getNeighbourValues().contains(setValue)) {
-            throw new ConflictingNeighbourValueException();
-        }
-        result.cells[setRow][setCol].setValue(OptionalInt.of(setValue));
-        return result;
+        return new SudokuBoard(cells);
     }
 
     public String toString() {
@@ -97,6 +213,5 @@ public class SudokuBoard {
         }
         return stringBuilder.toString();
     }
-
 
 }

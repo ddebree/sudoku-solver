@@ -2,35 +2,24 @@ package com.example.demo.model;
 
 import lombok.Data;
 
-import java.util.HashSet;
-import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Set;
 
 @Data
 public class Cell {
 
-    private OptionalInt value = OptionalInt.empty();
-    private final Set<Cell> neighbours = new HashSet<>();
+    private final int row;
+    private final int col;
+    private final OptionalInt value;
 
-    public void addNeighbour(Cell cell) {
-        if (cell != this) {
-            neighbours.add(cell);
-        }
+    public Cell(int row, int col) {
+        this.row = row;
+        this.col = col;
+        this.value = OptionalInt.empty();
     }
 
-    public void addNeighbours(Iterable<Cell> cells) {
-        cells.forEach(this::addNeighbour);
+    public Cell(int row, int col, int value) {
+        this.row = row;
+        this.col = col;
+        this.value = OptionalInt.of(value);
     }
-
-    public Set<Integer> getNeighbourValues() {
-        final Set<Integer> values = new HashSet<>();
-        for (final var neighbour : getNeighbours()) {
-            if (neighbour.getValue().isPresent()) {
-                values.add(neighbour.getValue().getAsInt());
-            }
-        }
-        return values;
-    }
-
 }
