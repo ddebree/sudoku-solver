@@ -70,8 +70,8 @@ public class BoardRenderer {
 
         @Override
         public String[] formatCell(final Position position) {
-            if (board.getValues().containsKey(position)) {
-                return new String[] { String.valueOf(board.getValues().get(position)) };
+            if (board.hasValue(position)) {
+                return new String[] { String.valueOf(board.getValueUnsafe(position)) };
             } else {
                 return new String[] { BLANK };
             }
@@ -86,8 +86,8 @@ public class BoardRenderer {
 
         @Override
         public String[] formatCell(final Position position) {
-            if (board.getValues().containsKey(position)) {
-                return new String[] { BLANK, "<" + board.getValues().get(position) + ">", BLANK };
+            if (board.hasValue(position)) {
+                return new String[] { BLANK, "<" + board.getValueUnsafe(position) + ">", BLANK };
             } else {
                 final Set<Integer> potentialValues = board.getPossibleValues(position);
                 return new String[] {
