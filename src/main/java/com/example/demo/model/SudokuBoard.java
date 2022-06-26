@@ -1,7 +1,6 @@
 package com.example.demo.model;
 
 import com.example.demo.exception.ValueAlreadySetException;
-import lombok.Getter;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -9,14 +8,7 @@ import java.util.stream.Collectors;
 
 public abstract class SudokuBoard {
 
-    private static final SudokuBoard EMPTY_BOARD = new EmptySudokuBoard(Collections.emptyMap());
-
-    @Getter
-    protected final Map<Position, Integer> values;
-
-    private SudokuBoard(final Map<Position, Integer> values) {
-        this.values = values;
-    }
+    public abstract Map<Position, Integer> getValues();
 
     public abstract Set<Position> getUnsolvedPositions();
 
@@ -29,7 +21,7 @@ public abstract class SudokuBoard {
     public abstract boolean isValid();
 
     public static SudokuBoard empty() {
-        return EMPTY_BOARD;
+        return EmptySudokuBoard.INSTANCE;
     }
 
     public SudokuBoard withValue(final int setRow, final int setCol, final int setValue) throws ValueAlreadySetException {
@@ -37,17 +29,17 @@ public abstract class SudokuBoard {
     }
 
     public SudokuBoard withValue(final Position position, final int setValue) throws ValueAlreadySetException {
-        if (this.values.containsKey(position)) {
-            if (this.values.get(position) == setValue) {
+        if (this.getValues().containsKey(position)) {
+            if (this.getValues().get(position) == setValue) {
                 return this;
             } else {
                 throw new ValueAlreadySetException();
             }
         }
-        if (this.values.containsKey(position) && this.values.get(position) == setValue) {
+        if (this.getValues().containsKey(position) && this.getValues().get(position) == setValue) {
             return this;
         }
-        final Map<Position, Integer> values = new HashMap<>(this.values);
+        final Map<Position, Integer> values = new HashMap<>(this.getValues());
         values.put(position, setValue);
         return new ChildSudokuBoard(this, values);
     }
@@ -59,8 +51,8 @@ public abstract class SudokuBoard {
             for (int col = 0; col < 9; col++) {
                 final var position = Position.at(row, col);
                 stringBuilder.append(" ");
-                if (this.values.containsKey(position)) {
-                    stringBuilder.append(this.values.get(position));
+                if (this.getValues().containsKey(position)) {
+                    stringBuilder.append(this.getValues().get(position));
                 } else {
                     stringBuilder.append(".");
                 }
@@ -77,8 +69,14 @@ public abstract class SudokuBoard {
 
     private static class EmptySudokuBoard extends SudokuBoard {
 
-        private EmptySudokuBoard(Map<Position, Integer> values) {
-            super(values);
+        private static final SudokuBoard INSTANCE = new EmptySudokuBoard();
+
+        private EmptySudokuBoard() {
+        }
+
+        @Override
+        public Map<Position, Integer> getValues() {
+            return Collections.emptyMap();
         }
 
         public Set<Position> getUnsolvedPositions() {
@@ -107,16 +105,23 @@ public abstract class SudokuBoard {
 
         private final SudokuBoard parent;
 
+        private final Map<Position, Integer> values;
         private transient Boolean valid = null;
         private transient Set<Position> unsolvedPositions = null;
         private final Map<Position, SortedSet<Integer>> neighbourValues = new ConcurrentHashMap<>();
         private final Map<Position, SortedSet<Integer>> possibleValues = new ConcurrentHashMap<>();
 
         private ChildSudokuBoard(SudokuBoard parent, Map<Position, Integer> values) {
-            super(values);
             this.parent = parent;
+            this.values = values;
         }
 
+        @Override
+        public Map<Position, Integer> getValues() {
+            return values;
+        }
+
+        @Override
         public Set<Position> getUnsolvedPositions() {
             if (unsolvedPositions == null) {
                 unsolvedPositions = computeUnsolvedPositions();
@@ -130,6 +135,7 @@ public abstract class SudokuBoard {
                     .collect(Collectors.toSet());
         }
 
+        @Override
         public boolean isValid() {
             if (valid == null) {
                 valid = computeValid();
@@ -155,10 +161,12 @@ public abstract class SudokuBoard {
             return true;
         }
 
+        @Override
         public boolean isSolved() {
             return this.values.size() == Position.ALL_POSITIONS.size();
         }
 
+        @Override
         public SortedSet<Integer> getNeighbourValues(final Position position) {
             return this.neighbourValues.computeIfAbsent(position, this::computeNeighbourValues);
         }
@@ -170,6 +178,7 @@ public abstract class SudokuBoard {
                     .collect(Collectors.toCollection(TreeSet::new));
         }
 
+        @Override
         public SortedSet<Integer> getPossibleValues(final Position position) {
             return this.possibleValues.computeIfAbsent(position, this::computePossibleValues);
         }
