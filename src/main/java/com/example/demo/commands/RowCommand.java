@@ -3,6 +3,7 @@ package com.example.demo.commands;
 import com.example.demo.service.BoardHolder;
 import com.example.demo.service.BoardRenderer;
 import lombok.AllArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.shell.standard.ShellComponent;
 import org.springframework.shell.standard.ShellMethod;
@@ -15,6 +16,7 @@ public class RowCommand {
     private final BoardHolder boardHolder;
     private final BoardRenderer boardRenderer;
 
+    @SneakyThrows
     @ShellMethod("Set a row value")
     public void row(int row, String rowValue) {
         var board = this.boardHolder.getBoard();

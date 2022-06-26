@@ -1,7 +1,9 @@
 package com.example.demo.service;
 
-import com.example.demo.model.Cell;
+import com.example.demo.exception.ValueAlreadySetException;
+import com.example.demo.model.Position;
 import com.example.demo.model.SudokuBoard;
+import lombok.SneakyThrows;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -10,6 +12,7 @@ import java.util.stream.Collectors;
 @Component
 public class Solver {
 
+    @SneakyThrows
     public Set<SudokuBoard> findSolutions(final SudokuBoard board) {
         if (! board.isValid()) {
             return Collections.emptySet();
@@ -18,19 +21,26 @@ public class Solver {
             return Collections.singleton(board);
         }
         //Look for naked candidates (a cell with only one possible value):
-        for (Cell cell : board.getUnsolvedCells()) {
-            SortedSet<Integer> possibleValues = board.getPossibleValues(cell);
+        for (final Position position : board.getUnsolvedPositions()) {
+            final SortedSet<Integer> possibleValues = board.getPossibleValues(position);
             if (possibleValues.size() == 1) {
-                return findSolutions(board.withValue(cell, possibleValues.first()));
+                return findSolutions(board.withValue(position, possibleValues.first()));
             }
         }
 
         //Brute force it...
-        final Optional<Cell> firstUnset = board.getUnsolvedCells().stream().findAny();
+        final Optional<Position> firstUnset = board.getUnsolvedPositions().stream().findAny();
         if (firstUnset.isPresent()) {
-            final Cell cell = firstUnset.get();
-            return board.getPossibleValues(cell).parallelStream()
-                    .map(value -> findSolutions(board.withValue(cell, value)))
+            final Position position = firstUnset.get();
+            return board.getPossibleValues(position)
+                    .parallelStream()
+                    .map(value -> {
+                        try {
+                            return findSolutions(board.withValue(position, value));
+                        } catch (ValueAlreadySetException e) {
+                            return Collections.<SudokuBoard>emptySet();
+                        }
+                    })
                     .flatMap(Collection::stream)
                     .collect(Collectors.toSet());
         } else {

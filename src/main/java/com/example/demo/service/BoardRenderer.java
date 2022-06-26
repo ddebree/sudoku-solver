@@ -1,6 +1,6 @@
 package com.example.demo.service;
 
-import com.example.demo.model.Cell;
+import com.example.demo.model.Position;
 import com.example.demo.model.SudokuBoard;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,11 +18,11 @@ public class BoardRenderer {
     private static final String BLANK = "";
 
     public void render(SudokuBoard board) {
-        final TableModel model = new ArrayTableModel(board.getCells());
+        final TableModel model = new ArrayTableModel(Position.POSITIONS);
         final Table table = new TableBuilder(model)
                 .addFullBorder(BorderStyle.oldschool)
-                .on(CellMatchers.ofType(Cell.class))
-                .addFormatter(new SingleLineFormatter())
+                .on(CellMatchers.ofType(Position.class))
+                .addFormatter(new SingleLineFormatter(board))
                 .addAligner(SimpleHorizontalAligner.center)
                 .addSizer(new AbsoluteWidthSizeConstraints(3))
                 .build();
@@ -31,10 +31,10 @@ public class BoardRenderer {
     }
 
     public void renderPossibles(SudokuBoard board) {
-        final TableModel model = new ArrayTableModel(board.getCells());
+        final TableModel model = new ArrayTableModel(Position.POSITIONS);
         final Table table = new TableBuilder(model)
                 .addFullBorder(BorderStyle.oldschool)
-                .on(CellMatchers.ofType(Cell.class))
+                .on(CellMatchers.ofType(Position.class))
                     .addFormatter(new TripleLineFormatter(board))
                     .addAligner(SimpleHorizontalAligner.center)
                     .addSizer(new AbsoluteWidthSizeConstraints(5))
@@ -44,14 +44,17 @@ public class BoardRenderer {
         log.info("Table:\n{}", table.render(80));
     }
 
+    @AllArgsConstructor
     private static abstract class CellFormatter implements Formatter {
 
-        protected abstract String[] formatCell(Cell cell);
+        protected final SudokuBoard board;
+
+        protected abstract String[] formatCell(Position position);
 
         @Override
         public String[] format(final Object value) {
-            if (value instanceof Cell) {
-                final Cell cell = (Cell)value;
+            if (value instanceof Position) {
+                final Position cell = (Position)value;
                 return formatCell(cell);
             }
             return new String[] { "" };
@@ -61,27 +64,32 @@ public class BoardRenderer {
 
     private static class SingleLineFormatter extends CellFormatter {
 
+        public SingleLineFormatter(SudokuBoard board) {
+            super(board);
+        }
+
         @Override
-        public String[] formatCell(final Cell cell) {
-            if (cell.getValue().isPresent()) {
-                return new String[] { String.valueOf(cell.getValue().getAsInt()) };
+        public String[] formatCell(final Position position) {
+            if (board.getValues().containsKey(position)) {
+                return new String[] { String.valueOf(board.getValues().get(position)) };
             } else {
                 return new String[] { BLANK };
             }
         }
     }
 
-    @AllArgsConstructor
     private static class TripleLineFormatter extends CellFormatter {
 
-        private final SudokuBoard board;
+        public TripleLineFormatter(SudokuBoard board) {
+            super(board);
+        }
 
         @Override
-        public String[] formatCell(final Cell cell) {
-            if (cell.getValue().isPresent()) {
-                return new String[] { BLANK, "<" + cell.getValue().getAsInt() + ">", BLANK };
+        public String[] formatCell(final Position position) {
+            if (board.getValues().containsKey(position)) {
+                return new String[] { BLANK, "<" + board.getValues().get(position) + ">", BLANK };
             } else {
-                final Set<Integer> potentialValues = board.getPossibleValues(cell);
+                final Set<Integer> potentialValues = board.getPossibleValues(position);
                 return new String[] {
                         getValue("123", potentialValues),
                         getValue("456", potentialValues),
