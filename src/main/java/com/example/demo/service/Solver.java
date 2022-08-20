@@ -21,32 +21,33 @@ public class Solver {
         if (board.isSolved()) {
             return Collections.singleton(board);
         }
-        //Look for naked candidates (a cell with only one possible value):
+
+        EnumSet<Value> fewestPossibles = EnumSet.allOf(Value.class);
+        Position fewestPossiblePosition = null;
+
         for (final Position position : board.getUnsolvedPositions()) {
             final EnumSet<Value> possibleValues = board.getPossibleValues(position);
             if (possibleValues.size() == 1) {
                 return findSolutions(board.withValue(position, possibleValues.iterator().next()));
+            } else if (possibleValues.size() < fewestPossibles.size()) {
+                fewestPossibles = possibleValues;
+                fewestPossiblePosition = position;
             }
         }
 
         //Brute force it...
-        final Optional<Position> firstUnset = board.getUnsolvedPositions().stream().findAny();
-        if (firstUnset.isPresent()) {
-            final Position position = firstUnset.get();
-            return board.getPossibleValues(position)
-                    .parallelStream()
-                    .map(value -> {
-                        try {
-                            return findSolutions(board.withValue(position, value));
-                        } catch (ValueAlreadySetException e) {
-                            return Collections.<SudokuBoard>emptySet();
-                        }
-                    })
-                    .flatMap(Collection::stream)
-                    .collect(Collectors.toSet());
-        } else {
-            throw new RuntimeException("Something weird here");
-        }
+        final Position position = fewestPossiblePosition;
+        return fewestPossibles
+                .parallelStream()
+                .map(value -> {
+                    try {
+                        return findSolutions(board.withValue(position, value));
+                    } catch (ValueAlreadySetException e) {
+                        return Collections.<SudokuBoard>emptySet();
+                    }
+                })
+                .flatMap(Collection::stream)
+                .collect(Collectors.toSet());
     }
 
 }
