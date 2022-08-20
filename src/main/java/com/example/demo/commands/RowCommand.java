@@ -1,5 +1,6 @@
 package com.example.demo.commands;
 
+import com.example.demo.model.Position;
 import com.example.demo.service.BoardHolder;
 import com.example.demo.service.BoardRenderer;
 import lombok.AllArgsConstructor;
@@ -25,7 +26,7 @@ public class RowCommand {
             for (Character c : rowValue.toCharArray()) {
                 int value = c - '0';
                 if (value > 0 && value <= 9) {
-                    board = board.withValue(row, col, value);
+                    board = board.withValue(Position.at(row, col), value);
                 }
                 col++;
             }
