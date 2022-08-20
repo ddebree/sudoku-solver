@@ -8,17 +8,17 @@ import java.util.stream.Collectors;
 
 public abstract class SudokuBoard {
 
-    protected abstract Map<Position, Integer> getValues();
+    protected abstract Map<Position, Value> getValues();
 
     public abstract boolean hasValue(Position position);
-    public abstract OptionalInt getValue(Position position);
-    public Integer getValueUnsafe(Position position) {
+    public abstract Optional<Value> getValue(Position position);
+    public Value getValueUnsafe(Position position) {
         return getValue(position).orElseThrow();
     }
 
     public abstract Set<Position> getUnsolvedPositions();
 
-    public abstract SortedSet<Integer> getPossibleValues(final Position position);
+    public abstract EnumSet<Value> getPossibleValues(final Position position);
 
     public abstract boolean isSolved();
 
@@ -28,7 +28,7 @@ public abstract class SudokuBoard {
         return EmptySudokuBoard.INSTANCE;
     }
 
-    public SudokuBoard withValue(final Position position, final int value) throws ValueAlreadySetException {
+    public SudokuBoard withValue(final Position position, final Value value) throws ValueAlreadySetException {
         if (this.hasValue(position)) {
             if (this.getValueUnsafe(position) == value) {
                 return this;
@@ -47,7 +47,7 @@ public abstract class SudokuBoard {
         private static final SudokuBoard INSTANCE = new EmptySudokuBoard();
 
         @Override
-        public Map<Position, Integer> getValues() {
+        public Map<Position, Value> getValues() {
             return Collections.emptyMap();
         }
 
@@ -57,8 +57,8 @@ public abstract class SudokuBoard {
         }
 
         @Override
-        public OptionalInt getValue(Position position) {
-            return OptionalInt.empty();
+        public Optional<Value> getValue(Position position) {
+            return Optional.empty();
         }
 
         public Set<Position> getUnsolvedPositions() {
@@ -73,8 +73,8 @@ public abstract class SudokuBoard {
             return false;
         }
 
-        public SortedSet<Integer> getPossibleValues(final Position position) {
-            return Value.POSSIBLE_VALUES;
+        public EnumSet<Value> getPossibleValues(final Position position) {
+            return EnumSet.allOf(Value.class);
         }
 
     }
@@ -83,20 +83,20 @@ public abstract class SudokuBoard {
 
         private final SudokuBoard parent;
 
-        private final Map<Position, Integer> values;
+        private final Map<Position, Value> values;
         private transient Boolean valid = null;
         private transient Set<Position> unsolvedPositions = null;
-        private final Map<Position, SortedSet<Integer>> neighbourValues = new ConcurrentHashMap<>();
-        private final Map<Position, SortedSet<Integer>> possibleValues = new ConcurrentHashMap<>();
+        private final Map<Position, EnumSet<Value>> neighbourValues = new ConcurrentHashMap<>();
+        private final Map<Position, EnumSet<Value>> possibleValues = new ConcurrentHashMap<>();
 
-        private ChildSudokuBoard(SudokuBoard parent, Position position, Integer value) {
+        private ChildSudokuBoard(SudokuBoard parent, Position position, Value value) {
             this.parent = parent;
             this.values = new HashMap<>(parent.getValues());
             this.values.put(position, value);
         }
 
         @Override
-        public Map<Position, Integer> getValues() {
+        public Map<Position, Value> getValues() {
             return values;
         }
 
@@ -106,9 +106,9 @@ public abstract class SudokuBoard {
         }
 
         @Override
-        public OptionalInt getValue(Position position) {
-            final Integer value = values.get(position);
-            return value == null ? OptionalInt.empty() : OptionalInt.of(value);
+        public Optional<Value> getValue(Position position) {
+            final Value value = values.get(position);
+            return value == null ? Optional.empty() : Optional.of(value);
         }
 
         @Override
@@ -156,27 +156,27 @@ public abstract class SudokuBoard {
             return this.getValues().size() == Position.ALL_POSITIONS.size();
         }
 
-        public SortedSet<Integer> getNeighbourValues(final Position position) {
+        public EnumSet<Value> getNeighbourValues(final Position position) {
             return this.neighbourValues.computeIfAbsent(position, this::computeNeighbourValues);
         }
 
-        private SortedSet<Integer> computeNeighbourValues(final Position position) {
+        private EnumSet<Value> computeNeighbourValues(final Position position) {
             return Position.getNeighbours(position).stream()
                     .filter(this::hasValue)
                     .map(this::getValueUnsafe)
-                    .collect(Collectors.toCollection(TreeSet::new));
+                    .collect(Collectors.toCollection(() -> EnumSet.noneOf(Value.class)));
         }
 
         @Override
-        public SortedSet<Integer> getPossibleValues(final Position position) {
+        public EnumSet<Value> getPossibleValues(final Position position) {
             return this.possibleValues.computeIfAbsent(position, this::computePossibleValues);
         }
 
-        private SortedSet<Integer> computePossibleValues(final Position position) {
+        private EnumSet<Value> computePossibleValues(final Position position) {
             if (this.hasValue(position)) {
-                return new TreeSet<>(List.of(this.getValueUnsafe(position)));
+                return EnumSet.of(this.getValueUnsafe(position));
             } else {
-                final TreeSet<Integer> potentialValues = new TreeSet<>(parent.getPossibleValues(position));
+                final EnumSet<Value> potentialValues = EnumSet.copyOf(parent.getPossibleValues(position));
                 potentialValues.removeAll(getNeighbourValues(position));
                 return potentialValues;
             }

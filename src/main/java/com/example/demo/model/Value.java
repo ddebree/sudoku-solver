@@ -1,11 +1,19 @@
 package com.example.demo.model;
 
-import java.util.Arrays;
-import java.util.SortedSet;
-import java.util.TreeSet;
+public enum Value {
 
-public class Value {
+    VALUE_1,
+    VALUE_2,
+    VALUE_3,
+    VALUE_4,
+    VALUE_5,
+    VALUE_6,
+    VALUE_7,
+    VALUE_8,
+    VALUE_9;
 
-    public static final SortedSet<Integer> POSSIBLE_VALUES = new TreeSet<>(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9));
-
+    @Override
+    public String toString() {
+        return String.valueOf(this.ordinal() + 1);
+    }
 }

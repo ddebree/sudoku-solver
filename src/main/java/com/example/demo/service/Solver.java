@@ -3,6 +3,7 @@ package com.example.demo.service;
 import com.example.demo.exception.ValueAlreadySetException;
 import com.example.demo.model.Position;
 import com.example.demo.model.SudokuBoard;
+import com.example.demo.model.Value;
 import lombok.SneakyThrows;
 import org.springframework.stereotype.Component;
 
@@ -22,9 +23,9 @@ public class Solver {
         }
         //Look for naked candidates (a cell with only one possible value):
         for (final Position position : board.getUnsolvedPositions()) {
-            final SortedSet<Integer> possibleValues = board.getPossibleValues(position);
+            final EnumSet<Value> possibleValues = board.getPossibleValues(position);
             if (possibleValues.size() == 1) {
-                return findSolutions(board.withValue(position, possibleValues.first()));
+                return findSolutions(board.withValue(position, possibleValues.iterator().next()));
             }
         }
 

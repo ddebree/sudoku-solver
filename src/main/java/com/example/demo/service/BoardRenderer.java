@@ -2,12 +2,13 @@ package com.example.demo.service;
 
 import com.example.demo.model.Position;
 import com.example.demo.model.SudokuBoard;
+import com.example.demo.model.Value;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.shell.table.*;
 import org.springframework.stereotype.Component;
 
-import java.util.Set;
+import java.util.EnumSet;
 import java.util.stream.Collectors;
 
 @Component
@@ -89,7 +90,7 @@ public class BoardRenderer {
             if (board.hasValue(position)) {
                 return new String[] { BLANK, "<" + board.getValueUnsafe(position) + ">", BLANK };
             } else {
-                final Set<Integer> potentialValues = board.getPossibleValues(position);
+                final EnumSet<Value> potentialValues = board.getPossibleValues(position);
                 return new String[] {
                         getValue("123", potentialValues),
                         getValue("456", potentialValues),
@@ -99,7 +100,7 @@ public class BoardRenderer {
         }
 
         private String getValue(final String hash,
-                                final Set<Integer> potentialValues) {
+                                final EnumSet<Value> potentialValues) {
             return potentialValues.stream()
                     .map(Object::toString)
                     .filter(hash::contains)
