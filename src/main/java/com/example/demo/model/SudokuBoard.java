@@ -29,15 +29,13 @@ public abstract class SudokuBoard {
     }
 
     public SudokuBoard withValue(final Position position, final Value value) throws ValueAlreadySetException {
-        if (this.hasValue(position)) {
-            if (this.getValueUnsafe(position) == value) {
+        final Optional<Value> currentValue = getValue(position);
+        if (currentValue.isPresent()) {
+            if (currentValue.get() == value) {
                 return this;
             } else {
                 throw new ValueAlreadySetException();
             }
-        }
-        if (this.hasValue(position) && this.getValueUnsafe(position) == value) {
-            return this;
         }
         return new ChildSudokuBoard(this, position, value);
     }
