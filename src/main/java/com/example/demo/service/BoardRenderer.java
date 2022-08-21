@@ -20,27 +20,21 @@ public class BoardRenderer {
     private static final String BLANK = "";
 
     public void render(SudokuBoard board) {
-        final TableModel model = new ArrayTableModel(Position.POSITIONS);
-        final Table table = new TableBuilder(model)
-                .addFullBorder(BorderStyle.oldschool)
-                .on(CellMatchers.ofType(Position.class))
-                .addFormatter(new SingleLineFormatter(board))
-                .addAligner(SimpleHorizontalAligner.center)
-                .addSizer(new AbsoluteWidthSizeConstraints(3))
-                .build();
-
-        log.info("Table:\n{}", table.render(80));
+        render(new SingleLineFormatter(board), 3);
     }
 
     public void renderPossibles(SudokuBoard board) {
+        render(new TripleLineFormatter(board), 5);
+    }
+
+    private void render(CellFormatter cellFormatter, int cellWidth) {
         final TableModel model = new ArrayTableModel(Position.POSITIONS);
         final Table table = new TableBuilder(model)
                 .addFullBorder(BorderStyle.oldschool)
                 .on(CellMatchers.ofType(Position.class))
-                    .addFormatter(new TripleLineFormatter(board))
+                    .addFormatter(cellFormatter)
                     .addAligner(SimpleHorizontalAligner.center)
-                    .addSizer(new AbsoluteWidthSizeConstraints(5))
-                .on(CellMatchers.at(0, 0))
+                    .addSizer(new AbsoluteWidthSizeConstraints(cellWidth))
                 .build();
 
         log.info("Table:\n{}", table.render(80));
