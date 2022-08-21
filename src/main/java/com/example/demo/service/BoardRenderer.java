@@ -9,6 +9,7 @@ import org.springframework.shell.table.*;
 import org.springframework.stereotype.Component;
 
 import java.util.EnumSet;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Component
@@ -50,13 +51,14 @@ public class BoardRenderer {
 
         protected final SudokuBoard board;
 
-        protected abstract String[] formatCell(Position position);
+        protected abstract String[] formatCell(Position position, Optional<Value> value);
 
         @Override
         public String[] format(final Object value) {
             if (value instanceof Position) {
-                final Position cell = (Position)value;
-                return formatCell(cell);
+                final Position position = (Position)value;
+                final Optional<Value> cellValue = board.getValue(position);
+                return formatCell(position, cellValue);
             }
             return new String[] { "" };
         }
@@ -70,12 +72,10 @@ public class BoardRenderer {
         }
 
         @Override
-        public String[] formatCell(final Position position) {
-            if (board.hasValue(position)) {
-                return new String[] { String.valueOf(board.getValueUnsafe(position)) };
-            } else {
-                return new String[] { BLANK };
-            }
+        public String[] formatCell(final Position position, Optional<Value> value) {
+            return value
+                    .map(v -> new String[]{ String.valueOf(v) })
+                    .orElseGet(() -> new String[]{ BLANK });
         }
     }
 
@@ -86,9 +86,9 @@ public class BoardRenderer {
         }
 
         @Override
-        public String[] formatCell(final Position position) {
-            if (board.hasValue(position)) {
-                return new String[] { BLANK, "<" + board.getValueUnsafe(position) + ">", BLANK };
+        public String[] formatCell(final Position position, Optional<Value> value) {
+            if (value.isPresent()) {
+                return new String[] { BLANK, "<" + value.get() + ">", BLANK };
             } else {
                 final EnumSet<Value> potentialValues = board.getPossibleValues(position);
                 return new String[] {

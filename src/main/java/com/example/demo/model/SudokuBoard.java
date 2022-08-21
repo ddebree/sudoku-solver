@@ -10,11 +10,7 @@ public abstract class SudokuBoard {
 
     protected abstract Map<Position, Value> getValues();
 
-    public abstract boolean hasValue(Position position);
     public abstract Optional<Value> getValue(Position position);
-    public Value getValueUnsafe(Position position) {
-        return getValue(position).orElseThrow();
-    }
 
     public abstract Set<Position> getUnsolvedPositions();
 
@@ -47,11 +43,6 @@ public abstract class SudokuBoard {
         @Override
         public Map<Position, Value> getValues() {
             return Collections.emptyMap();
-        }
-
-        @Override
-        public boolean hasValue(Position position) {
-            return false;
         }
 
         @Override
@@ -99,14 +90,8 @@ public abstract class SudokuBoard {
         }
 
         @Override
-        public boolean hasValue(Position position) {
-            return values.containsKey(position);
-        }
-
-        @Override
         public Optional<Value> getValue(Position position) {
-            final Value value = values.get(position);
-            return value == null ? Optional.empty() : Optional.of(value);
+            return Optional.ofNullable(values.get(position));
         }
 
         @Override
@@ -119,7 +104,7 @@ public abstract class SudokuBoard {
 
         private Set<Position> computeUnsolvedPositions() {
             return parent.getUnsolvedPositions().stream()
-                    .filter(p -> ! this.hasValue(p))
+                    .filter(p -> ! values.containsKey(p))
                     .collect(Collectors.toSet());
         }
 
@@ -133,9 +118,10 @@ public abstract class SudokuBoard {
 
         private boolean computeValid() {
             for (final Position position : Position.ALL_POSITIONS) {
-                if (this.hasValue(position)) {
+                Optional<Value> value = getValue(position);
+                if (value.isPresent()) {
                     //This is set, so it shouldn't conflict with other cells:
-                    if (getNeighbourValues(position).contains(this.getValueUnsafe(position))) {
+                    if (getNeighbourValues(position).contains(value.get())) {
                         //One of the neighbours has the same value, so reject:
                         return false;
                     }
@@ -160,8 +146,9 @@ public abstract class SudokuBoard {
 
         private EnumSet<Value> computeNeighbourValues(final Position position) {
             return Position.getNeighbours(position).stream()
-                    .filter(this::hasValue)
-                    .map(this::getValueUnsafe)
+                    .map(this::getValue)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
                     .collect(Collectors.toCollection(() -> EnumSet.noneOf(Value.class)));
         }
 
@@ -171,8 +158,9 @@ public abstract class SudokuBoard {
         }
 
         private EnumSet<Value> computePossibleValues(final Position position) {
-            if (this.hasValue(position)) {
-                return EnumSet.of(this.getValueUnsafe(position));
+            final Optional<Value> value = getValue(position);
+            if (value.isPresent()) {
+                return EnumSet.of(value.get());
             } else {
                 final EnumSet<Value> potentialValues = EnumSet.copyOf(parent.getPossibleValues(position));
                 potentialValues.removeAll(getNeighbourValues(position));
